@@ -9,6 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl xz-utils \
     libglib2.0-0 libx11-6 libxi6 libxxf86vm1 libxfixes3 libxcb1 libxrender1 libsm6 libxext6 libglu1-mesa \
+    libxkbcommon0 libxrandr2 libxinerama1 libxcursor1 libx11-xcb1 libegl1 libdbus-1-3 libzstd1 libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app dir
@@ -24,18 +25,21 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # --- Blender: download official build at build-time (can override) ---
-# Default pinned to an LTS-ish line; override at build with:
-#   --build-arg BLENDER_TAR_URL=https://download.blender.org/release/Blender4.2/blender-4.2.0-linux-x64.tar.xz
 ARG BLENDER_TAR_URL=https://download.blender.org/release/Blender4.2/blender-4.2.0-linux-x64.tar.xz
 ENV BLENDER_DIR=/opt/blender
-RUN mkdir -p "$BLENDER_DIR" /data && \
-    echo "Fetching Blender from $BLENDER_TAR_URL" && \
-    curl -L "$BLENDER_TAR_URL" -o /tmp/blender.tar.xz && \
-    tar -xJf /tmp/blender.tar.xz -C /opt && \
-    rm /tmp/blender.tar.xz && \
-    # symlink to /opt/blender
-    BL_NAME=$(ls /opt | grep -E '^blender-[0-9]') && \
-    ln -s "/opt/$BL_NAME" "$BLENDER_DIR"
+RUN set -eux; \
+    mkdir -p "$BLENDER_DIR" /data; \
+    echo "Fetching Blender from $BLENDER_TAR_URL"; \
+    curl -L "$BLENDER_TAR_URL" -o /tmp/blender.tar.xz; \
+    tar -xJf /tmp/blender.tar.xz -C /opt; \
+    rm /tmp/blender.tar.xz; \
+    # Find the extracted dir name robustly (first-level folder from tar)
+    BL_DIR="$(ls -1 /opt | grep -E '^blender-[0-9]')" ; \
+    echo "Extracted to /opt/$BL_DIR"; \
+    rm -f "$BLENDER_DIR" && ln -s "/opt/$BL_DIR" "$BLENDER_DIR"; \
+    ls -l /opt && ls -l "$BLENDER_DIR"; \
+    test -x "$BLENDER_DIR/blender"; \
+    "$BLENDER_DIR/blender" -v || true
 
 # Ports & volumes
 EXPOSE 8084
